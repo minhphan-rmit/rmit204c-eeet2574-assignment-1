@@ -1,64 +1,78 @@
-version: "3"
-
 services:
-
   zookeeper:
-    image: zookeeper
-    restart: always
+    image: zookeeper:latest
     container_name: zookeeper
     hostname: zookeeper
+    restart: always
     ports:
-      - 2181:2181
+      - "2181:2181"
     networks:
-      - default
+      - kafka-network
     environment:
       ZOO_MY_ID: 1
+      ZOO_SERVERS: server.1=zookeeper:2888:3888
+    platform: linux/amd64  # Specify the platform
 
   broker:
+    image: wurstmeister/kafka:latest
     container_name: broker
-    image: wurstmeister/kafka
+    hostname: broker
+    restart: always
     ports:
-      - 9092:9092
+      - "9092:9092"
     networks:
-      - default
+      - kafka-network
+    depends_on:
+      - zookeeper
     environment:
-      KAFKA_ADVERTISED_HOST_NAME: broker
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://broker:9092"
+      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:9092"
       KAFKA_MESSAGE_MAX_BYTES: 2000000
-      # Create topic, with 1 partition, 1 replica
-      KAFKA_CREATE_TOPICS: "twitter:1:1,weather:1:1,twittersink:1:1"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_LOG_RETENTION_HOURS: 24
+      KAFKA_CREATE_TOPICS: "weather:1:1"
+    platform: linux/amd64  # Specify the platform
 
   kafka_manager:
     image: hlebalbau/kafka-manager:stable
-    container_name: kakfa-manager
+    container_name: kafka-manager
+    hostname: kafka-manager
     restart: always
     ports:
-      - 9000:9000
+      - "9000:9000"
     networks:
-      - default
+      - kafka-network
+    depends_on:
+      - zookeeper
+      - broker
     environment:
       ZK_HOSTS: "zookeeper:2181"
       APPLICATION_SECRET: "random-secret"
       KAFKA_MANAGER_AUTH_ENABLED: "true"
-      KAFKA_MANAGER_USERNAME: admin
-      KAFKA_MANAGER_PASSWORD: bigbang
+      KAFKA_MANAGER_USERNAME: "admin"
+      KAFKA_MANAGER_PASSWORD: "bigbang"
     command: -Dpidfile.path=/dev/null
-  connect:
+    platform: linux/amd64  # Specify the platform
+
+  kafka-connect:
     build:
       context: .
       dockerfile: Dockerfile-connect
-    hostname: kafka-connect
     container_name: kafka-connect
+    hostname: kafka-connect
+    restart: always
     depends_on:
       - zookeeper
       - broker
     ports:
       - "8083:8083"
     networks:
-      - default
-      - secondary
+      - kafka-network
+      - cassandra-network
     environment:
-      CONNECT_BOOTSTRAP_SERVERS: 'broker:9092'
+      CONNECT_BOOTSTRAP_SERVERS: "broker:9092"
       CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
       CONNECT_REST_PORT: 8083
       CONNECT_GROUP_ID: kafka-connect-group
@@ -74,12 +88,13 @@ services:
       CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
       CONNECT_INTERNAL_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
-      CONNECT_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      CONNECT_ZOOKEEPER_CONNECT: "zookeeper:2181"
+    platform: linux/amd64  # Specify the platform
 
 networks:
-  default:
-    external:
-      name: kafka-network
-  secondary:
-    external:
-      name: cassandra-network
+  kafka-network:
+    external: true
+    name: kafka-network
+  cassandra-network:
+    external: true
+    name: cassandra-network

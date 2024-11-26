@@ -1,133 +1,135 @@
-import datetime
-import gzip
 import os
-import re
 import sys
-
 import pandas as pd
-from cassandra.cluster import BatchStatement, Cluster, ConsistencyLevel
+from cassandra.cluster import Cluster, BatchStatement, ConsistencyLevel
 from cassandra.query import dict_factory
 
-tablename = os.getenv("weather.table", "weatherreport")
-twittertable = os.getenv("twittertable.table", "twitterdata")
 
-CASSANDRA_HOST = os.environ.get("CASSANDRA_HOST") if os.environ.get("CASSANDRA_HOST") else 'localhost'
-CASSANDRA_KEYSPACE = os.environ.get("CASSANDRA_KEYSPACE") if os.environ.get("CASSANDRA_KEYSPACE") else 'kafkapipeline'
+# Environment variables and defaults
+CASSANDRA_HOST = os.getenv("CASSANDRA_HOST", "localhost")
+CASSANDRA_KEYSPACE = os.getenv("CASSANDRA_KEYSPACE", "kafkapipeline")
 
-WEATHER_TABLE = os.environ.get("WEATHER_TABLE") if os.environ.get("WEATHER_TABLE") else 'weather'
-TWITTER_TABLE = os.environ.get("TWITTER_TABLE") if os.environ.get("TWITTER_TABLE") else 'twitter'
+WEATHER_TABLE = os.getenv("WEATHER_TABLE", "weatherreport")
+# TWITTER_TABLE = os.getenv("TWITTER_TABLE", "twitterdata")  # Commented if unused
 
-def saveTwitterDf(dfrecords):
-    if isinstance(CASSANDRA_HOST, list):
-        cluster = Cluster(CASSANDRA_HOST)
-    else:
-        cluster = Cluster([CASSANDRA_HOST])
 
-    session = cluster.connect(CASSANDRA_KEYSPACE)
+# Common function to connect to Cassandra
+def get_cassandra_session():
+    cluster = Cluster([CASSANDRA_HOST]) if isinstance(CASSANDRA_HOST, str) else Cluster(CASSANDRA_HOST)
+    return cluster.connect(CASSANDRA_KEYSPACE)
 
+
+# Generalized save function
+def save_data(dfrecords, table_name, insert_query):
+    session = get_cassandra_session()
     counter = 0
-    totalcount = 0
+    total_count = 0
 
-    cqlsentence = "INSERT INTO " + twittertable + " (tweet_date, location, tweet, classification) \
-                   VALUES (?, ?, ?, ?)"
     batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM)
-    insert = session.prepare(cqlsentence)
+    insert = session.prepare(insert_query)
     batches = []
-    for idx, val in dfrecords.iterrows():
-        batch.add(insert, (val['datetime'], val['location'],
-                           val['tweet'], val['classification']))
+
+    for _, record in dfrecords.iterrows():
+        batch.add(insert, tuple(record))
         counter += 1
         if counter >= 100:
-            print('inserting ' + str(counter) + ' records')
-            totalcount += counter
+            print(f"Inserting {counter} records...")
+            total_count += counter
             counter = 0
             batches.append(batch)
             batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM)
+    
     if counter != 0:
         batches.append(batch)
-        totalcount += counter
-    rs = [session.execute(b, trace=True) for b in batches]
+        total_count += counter
 
-    print('Inserted ' + str(totalcount) + ' rows in total')
-
-
-def saveWeatherreport(dfrecords):
-    if isinstance(CASSANDRA_HOST, list):
-        cluster = Cluster(CASSANDRA_HOST)
-    else:
-        cluster = Cluster([CASSANDRA_HOST])
-
-    session = cluster.connect(CASSANDRA_KEYSPACE)
-
-    counter = 0
-    totalcount = 0
-
-    cqlsentence = "INSERT INTO " + tablename + " (forecastdate, location, description, temp, feels_like, temp_min, temp_max, pressure, humidity, wind, sunrise, sunset) \
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-    batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM)
-    insert = session.prepare(cqlsentence)
-    batches = []
-    for idx, val in dfrecords.iterrows():
-        batch.add(insert, (val['report_time'], val['location'], val['description'],
-                           val['temp'], val['feels_like'], val['temp_min'], val['temp_max'],
-                           val['pressure'], val['humidity'], val['wind'], val['sunrise'], val['sunset']))
-        counter += 1
-        if counter >= 100:
-            print('inserting ' + str(counter) + ' records')
-            totalcount += counter
-            counter = 0
-            batches.append(batch)
-            batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM)
-    if counter != 0:
-        batches.append(batch)
-        totalcount += counter
-    rs = [session.execute(b, trace=True) for b in batches]
-
-    print('Inserted ' + str(totalcount) + ' rows in total')
+    [session.execute(b) for b in batches]
+    print(f"Inserted {total_count} rows in total.")
 
 
-def loadDF(targetfile, target):
+# Save weather data
+def save_weather_data(dfrecords):
+    cql_sentence = f"""
+        INSERT INTO {WEATHER_TABLE} 
+        (forecastdate, location, description, temp, feels_like, temp_min, temp_max, 
+         pressure, humidity, wind, sunrise, sunset)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """
+    save_data(dfrecords, WEATHER_TABLE, cql_sentence)
+
+
+# Save Twitter data (if still needed)
+# def save_twitter_data(dfrecords):
+#     cql_sentence = f"""
+#         INSERT INTO {TWITTER_TABLE} 
+#         (tweet_date, location, tweet, classification)
+#         VALUES (?, ?, ?, ?)
+#     """
+#     save_data(dfrecords, TWITTER_TABLE, cql_sentence)
+
+
+# Generalized load function
+def load_df_to_table(file_path, target):
     if target == 'weather':
-        colsnames = ['description', 'temp', 'feels_like', 'temp_min', 'temp_max',
-                     'pressure', 'humidity', 'wind', 'sunrise', 'sunset', 'location', 'report_time']
-        dfData = pd.read_csv(targetfile, header=None,
-                             parse_dates=True, names=colsnames)
-        dfData['report_time'] = pd.to_datetime(dfData['report_time'])
-        saveWeatherreport(dfData)
-    elif target == 'twitter':
-        colsnames = ['tweet', 'datetime', 'location', 'classification']
-        dfData = pd.read_csv(targetfile, header=None,
-                             parse_dates=True, names=colsnames)
-        dfData['datetime'] = pd.to_datetime(dfData['datetime'])
-        saveTwitterDf(dfData)
+        column_names = [
+            'description', 'temp', 'feels_like', 'temp_min', 'temp_max', 
+            'pressure', 'humidity', 'wind', 'sunrise', 'sunset', 'location', 'report_time'
+        ]
+        df_data = pd.read_csv(file_path, header=None, names=column_names)
+        df_data['report_time'] = pd.to_datetime(df_data['report_time'])
+        save_weather_data(df_data)
+
+    # elif target == 'twitter':  # Commented out unless Twitter is still needed
+    #     column_names = ['tweet', 'datetime', 'location', 'classification']
+    #     df_data = pd.read_csv(file_path, header=None, names=column_names)
+    #     df_data['datetime'] = pd.to_datetime(df_data['datetime'])
+    #     save_twitter_data(df_data)
 
 
-def getWeatherDF():
-    return getDF(WEATHER_TABLE)
-def getTwitterDF():
-    return getDF(TWITTER_TABLE)
+# Generalized data retrieval function
+def get_data_as_dataframe(table_name):
+    session = get_cassandra_session()
+    session.row_factory = dict_factory
 
-def getDF(source_table):
-    if isinstance(CASSANDRA_HOST, list):
-        cluster = Cluster(CASSANDRA_HOST)
-    else:
-        cluster = Cluster([CASSANDRA_HOST])
-
-    if source_table not in (WEATHER_TABLE, TWITTER_TABLE):
+    if table_name not in (WEATHER_TABLE,):  # Add TWITTER_TABLE if needed
+        print(f"Invalid table name: {table_name}")
         return None
 
-    session = cluster.connect(CASSANDRA_KEYSPACE)
-    session.row_factory = dict_factory
-    cqlquery = "SELECT * FROM " + source_table + ";"
-    rows = session.execute(cqlquery)
+    query = f"SELECT * FROM {table_name};"
+    rows = session.execute(query)
     return pd.DataFrame(rows)
 
 
+# Wrapper for weather data retrieval
+def get_weather_data():
+    return get_data_as_dataframe(WEATHER_TABLE)
+
+
+# Wrapper for Twitter data retrieval (if still needed)
+# def get_twitter_data():
+#     return get_data_as_dataframe(TWITTER_TABLE)
+
+
+# Entry point for CLI-based operations
 if __name__ == "__main__":
+    if len(sys.argv) < 3:
+        print("Usage: python cassandra_utils.py <action> <target> <file_path>")
+        sys.exit(1)
+
     action = sys.argv[1]
     target = sys.argv[2]
-    targetfile = sys.argv[3]
+    file_path = sys.argv[3] if len(sys.argv) > 3 else None
+
     if action == "save":
-        loadDF(targetfile, target)
+        if not file_path:
+            print("File path required for saving data.")
+            sys.exit(1)
+        load_df_to_table(file_path, target)
     elif action == "get":
-        getDF(target)
+        if target == "weather":
+            print(get_weather_data())
+        # elif target == "twitter":  # Commented out unless needed
+        #     print(get_twitter_data())
+    else:
+        print(f"Unknown action: {action}")
+        sys.exit(1)
