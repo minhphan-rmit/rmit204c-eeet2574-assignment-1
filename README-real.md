@@ -2,11 +2,13 @@
 
 ## Assignment 1: Data Pipeline with Docker
 
+### Acknowledgement
+
+This project is based on <https://github.com/vnyennhi/docker-kafka-cassandra.git> with adjustments for MacOS Sequoia and Apple Silicon Chip compatibility.
+
 ### Pre-requisites
 Ensure your machine has the following pre-requisites:
 - `docker` and `docker-compose` installed and operational.
-
-**Note:** Adjustments may be required for MacOS Sequoia and Apple Silicon Chip compatibility.
 
 ---
 

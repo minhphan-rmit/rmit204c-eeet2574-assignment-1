@@ -12,10 +12,6 @@ docker-compose -f consumers/docker-compose.yml down
 echo "Stopping Open Weather Map producer..."
 docker-compose -f owm-producer/docker-compose.yml down
 
-# Stop Twitter producer
-echo "Stopping Twitter producer..."
-docker-compose -f twitter-producer/docker-compose.yml down
-
 # Stop Zookeeper, broker, Kafka-manager, and Kafka-connect services
 echo "Stopping Kafka cluster services..."
 docker-compose -f kafka/docker-compose.yml down
