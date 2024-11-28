@@ -1,144 +1,127 @@
-# How to Build a Distributed Big Data Pipeline Using Kafka, Cassandra, and Jupyter Lab with Docker
-
-You can use the resources in this github to deploy an end-to-end data pipeline on your local computer using Docker containerized Kafka (data streaming), Cassandra (NoSQL database) and Jupyter Lab (data analysis visualization).
-
-This bases on the repo https://github.com/salcaino/sfucmpt733/tree/main/foobar-kafka
-Substantial changes and bug fixes have been made. Tested on Windows 10. 
+# Data Pipeline with Docker
 
 
-## Tutorial videos
+## Overview
+This project implements a Dockerized data pipeline that integrates multiple big data technologies to process, store, and analyze diverse datasets. The pipeline includes:
 
-https://youtu.be/_lJWsgOoOjM
+- **Apache Kafka**: A distributed streaming platform for real-time data ingestion.
+- **Apache Cassandra**: A NoSQL database for scalable and high-performance data storage.
+- **Jupyter Notebook**: A robust environment for data analysis and visualization.
 
-https://youtu.be/TSJ_9ykhU1g
+The pipeline processes datasets from three APIs:
+1. **OpenWeatherMap API**: Streams real-time weather data for selected cities.
+2. **Faker API**: Generates synthetic data with customizable fields for testing and analysis.
+3. **The Movie Database (TMDB) API**: Collects movie-related metadata for comprehensive insights.
 
-https://youtu.be/qQ7krtlZ7As
+By integrating real-time and synthetic data sources, this project demonstrates the practical application of modern data engineering tools to handle, store, and visualize large datasets for actionable insights.
 
 
-# Quickstart instructions
-
+## Instructions
 You need to apply for some APIs to use with this. The APIs might take days for application to be granted access. Sample API keys are given, but it can be blocked if too many users are running this.
 
-Twitter Developer API: https://developer.twitter.com/en/apply-for-access
+- OpenWeatherMap API: https://openweathermap.org/api
+- Faker API: https://faker.readthedocs.io/en/master/providers.html
+- The Movie Database (TMDB): https://www.themoviedb.org/
 
-OpenWeatherMap API: https://openweathermap.org/api 
+After obtaining the API keys, please update the files "owm-producer/openweathermap_service.cfg" accordingly.
 
-After obtaining the API keys, please update the files  "twitter-producer/twitter_service.cfg" and "owm-producer/openweathermap_service.cfg" accordingly.
-
-
-#Create docker networks
+### 1. Create Docker Networks
 ```bash
-$ docker network create kafka-network                         # create a new docker network for kafka cluster (zookeeper, broker, kafka-manager services, and kafka connect sink services)
-$ docker network create cassandra-network                     # create a new docker network for cassandra. (kafka connect will exist on this network as well in addition to kafka-network)
+$ docker network create kafka-network          # Create network for Kafka services.
+$ docker network create cassandra-network      # Create network for Cassandra services.
+$ docker network ls                            # Verify network creation.
 ```
-## Starting Cassandra
 
-Cassandra is setup so it runs keyspace and schema creation scripts at first setup so it is ready to use.
+### 2. Starting Cassandra and Kafka
 ```bash
-$ docker-compose -f cassandra/docker-compose.yml up -d
+$ docker-compose -f cassandra/docker-compose.yml up -d  # Start Cassandra.
+$ docker-compose -f kafka/docker-compose.yml up -d      # Start Kafka.
+$ docker ps -a                                          # Check running containers.
 ```
 
-## Starting Kafka on Docker
+### 3. Access Kafka UI Frontend
+- **Open the Kafka UI:**
+    - Navigate to http://localhost:9000 in your web browser.
+    - Use the following credentials to log in:
+        - **Username:** `admin`
+        - **Password:** `bigbang`
+
+- **Add a Data Pipeline Cluster:**
+    - After logging in, click on the option to add a new cluster.
+    - Enter the following details:
+        - **Cluster Name:** `MyCluster`
+        - **Cluster Zookeeper:** `zookeeper:2181`
+    - Save the configuration to connect the cluster to the UI.
+
+### 4. Starting Cassandra Sinks
+You have to manually go to CLI of the "kafka-connect" container and run the below comment to start the Cassandra sinks.
 ```bash
-$ docker-compose -f kafka/docker-compose.yml up -d            # start single zookeeper, broker, kafka-manager and kafka-connect services
-$ docker ps -a                                                # sanity check to make sure services are up: kafka_broker_1, kafka-manager, zookeeper, kafka-connect service
-```
-
-> **Note:** 
-Kafka-Manager front end is available at http://localhost:9000
-
-You can use it to create cluster to view the topics streaming in Kafka.
-
-
-IMPORTANT: There is a bug that I don't know how to fix yet. You have to manually go to CLI of the "kafka-connect" container and run the below comment to start the Cassandra sinks.
-```
 ./start-and-wait.sh
 ```
 
-## Starting Producers
+### 5. Starting Producers
 ```bash
-$ docker-compose -f owm-producer/docker-compose.yml up -d     # start the producer that retrieves open weather map
-$ docker-compose -f twitter-producer/docker-compose.yml up # start the producer for twitter
+$ docker-compose -f owm-producer/docker-compose.yml up -d   # Start OpenWeatherMap producer.
+$ docker-compose -f faker-producer/docker-compose.yml up -d # Start Faker producer.
+$ docker-compose -f tmdb-producer/docker-compose.yml up -d  # Start TMDB producer.
 ```
 
-There is a known issue with reading the tweets and the bug fix will be releashed in Tweetpy 4.0 (details here: https://github.com/tweepy/tweepy/issues/237). Therefore, with the Twitter producer, we will attach the bash to monitor the log to see the magic and retry if the service is stopped. 
-
-## Starting Twitter classifier (plus Weather consumer)
-
-There is another catch: We cannot build the Docker file for the consumer directly with the docker-compose.yml (We can do so with all other yml files, just not this one -.-). So we have to manually go inside the folder "consumers" to build the Docker using command:
-
+### 6. Starting Consumers
 ```bash
-$ docker build -t twitterconsumer .        # start the consumers
+$ docker-compose -f consumers/docker-compose.yml up -d     # Start Kafka consumers.
 ```
 
-Then go back up 1 level with "cd .." and we can start consumers:
-```bash
-$ docker-compose -f consumers/docker-compose.yml up       # start the consumers
-```
-
-## Check that data is arriving to Cassandra
-
+### 6. Querying Data in Cassandra
 First login into Cassandra's container with the following command or open a new CLI from Docker Desktop if you use that.
 ```bash
-$ docker exec -it cassandra bash
+$ docker exec -it cassandra bash                        # Access Cassandra container.
 ```
-Once loged in, bring up cqlsh with this command and query twitterdata and weatherreport tables like this:
+Once loged in, bring up cqlsh with this command and query weatherreport, fakerdata and movies tables like this:
 ```bash
-$ cqlsh --cqlversion=3.4.4 127.0.0.1 #make sure you use the correct cqlversion
-
-cqlsh> use kafkapipeline; #keyspace name
-
-cqlsh:kafkapipeline> select * from twitterdata;
-
-cqlsh:kafkapipeline> select * from weatherreport;
+$ cqlsh --cqlversion=3.4.4 127.0.0.1                   # Make sure you use the correct cqlversion
+cqlsh> desc keyspaces;                                 # View databases.
+cqlsh> use kafkapipeline;                              # Switch to kafkapipeline keyspace.
+cqlsh> desc tables;                                    # View tables.
+cqlsh:kafkapipeline> select * from weatherreport;      # Query data from weatherreport table.
+cqlsh:kafkapipeline> select * from fakerdata;          # Query data from fakerdata table.
+cqlsh:kafkapipeline> select * from movies;             # Query data from movies table.
 ```
 
-And that's it! you should be seeing records coming in to Cassandra. Feel free to play around with it by bringing down containers and then up again to see the magic of fault tolerance!
-
-
-## Visualization
-
+### 6. Visualization
 Run the following command the go to http://localhost:8888 and run the visualization notebook accordingly
-
-```
-docker-compose -f data-vis/docker-compose.yml up -d
-```
-
-## Teardown
-
-To stop all running kakfa cluster services
-
 ```bash
-$ docker-compose -f data-vis/docker-compose.yml down # stop visualization node
-
-$ docker-compose -f consumers/docker-compose.yml down          # stop the consumers
-
-$ docker-compose -f owm-producer/docker-compose.yml down       # stop open weather map producer
-
-$ docker-compose -f twitter-producer/docker-compose.yml down   # stop twitter producer
-
-$ docker-compose -f kafka/docker-compose.yml down              # stop zookeeper, broker, kafka-manager and kafka-connect services
-
-$ docker-compose -f cassandra/docker-compose.yml down          # stop Cassandra
+$ docker-compose -f data-vis/docker-compose.yml up -d  # Start Jupyter Notebook.
 ```
 
-!IMPORTANT!: These commands are for your reference, please don't do it as we don't want to spend time downloading resources again in the next tutorial.
-
-To remove the kafka-network network:
-
+### 7. Teardown
+To stop all running kakfa cluster services:
 ```bash
-$ docker network rm kafka-network
-$ docker network rm cassandra-network
+$ docker-compose -f data-vis/docker-compose.yml down           # Stop visualization
+$ docker-compose -f consumers/docker-compose.yml down          # Stop consumers
+$ docker-compose -f owm-producer/docker-compose.yml down       # Stop owm producer
+$ docker-compose -f faker-producer/docker-compose.yml down     # Stop faker producer
+$ docker-compose -f tmdb-producer/docker-compose.yml down      # Stop tmdb producer
+$ docker-compose -f kafka/docker-compose.yml down              # Stop kafka
+$ docker-compose -f cassandra/docker-compose.yml down          # Stop cassandra
 ```
-
-To remove resources in Docker
-
+To remove the kafka and cassandra network:
 ```bash
-$ docker container prune # remove stopped containers, done with the docker-compose down
-$ docker volume prune # remove all dangling volumes (delete all data from your Kafka and Cassandra)
-$ docker image prune -a # remove all images (help with rebuild images)
-$ docker builder prune # remove all build cache (you have to pull data again in the next build)
-$ docker system prune -a # basically remove everything
+$ docker network rm kafka-network            # Remove kafka network
+$ docker network rm cassandra-network        # Remove cassandra network
+```
+To remove resources in Docker:
+```bash
+$ docker container prune    # Remove stopped containers
+$ docker volume prune       # Remove all volumes
+$ docker image prune -a     # Remove all images
+$ docker builder prune      # Remove all build cache
+$ docker system prune -a    # Remove everything
 ```
 
+## The Movie Database (TMDB) API
 
+
+## Data Visualization & Analysis
+
+
+## Practical Implication of the Project

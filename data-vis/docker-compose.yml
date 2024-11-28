@@ -10,7 +10,8 @@ services:
       CASSANDRA_HOST: cassandradb
       CASSANDRA_KEYSPACE: kafkapipeline
       WEATHER_TABLE: weatherreport
-      TWITTER_TABLE: twitterdata
+      FAKER_TABLE: fakerdata
+      TMDB_TABLE: movies
     ports:
         - 8888:8888
     volumes:
