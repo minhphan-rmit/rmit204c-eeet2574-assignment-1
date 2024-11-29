@@ -4,7 +4,7 @@
 **Student:** Phan Nhat Minh  
 **Student ID:** s3978598  
 
-This document serves as the official documentation for **Assignment 1: Data Pipeline with Docker**. The video documentation for this assignment is available [here](#) (insert actual link).
+This document serves as the official documentation for **Assignment 1: Data Pipeline with Docker**. The video documentation for this assignment is available on [Youtube](https://youtu.be/kHNVprOkJnI).
 
 ### Acknowledgement
 This project is built using resources provided by the lecturer, specifically from [this GitHub repository](https://github.com/vnyennhi/docker-kafka-cassandra). Modifications and adjustments have been made to meet the specific requirements of the assignment.
@@ -280,6 +280,66 @@ For **Task 3**, I chose to integrate two **NASA APIs** into the Kafka pipeline. 
 1. **Mars Weather API**: Provides real-time Martian atmospheric data, essential for supporting space missions, rover operations, and future human exploration on Mars.
 2. **NeoWs (Near Earth Object Web Service)**: Provides data on near-Earth objects (NEOs), which is vital for planetary defense and understanding the potential risks posed by asteroids or comets.
 
+You can access [NASA API Website](https://api.nasa.gov/) to register your API key and browse for more APIs.
+
+Here is the detailed information of these APIs:
+
+---
+
+#### 1. **Mars Weather API**
+
+The **Mars Weather API** provides real-time data about the atmospheric conditions on Mars. This data is crucial for scientists and engineers working on Mars missions, as it helps to monitor weather patterns and adjust mission plans for rover operations, lander activities, and future human exploration of Mars.
+
+##### Key Features:
+- **Source**: The data comes from NASA's Curiosity rover and other Mars surface missions, which are equipped with sensors that measure temperature, wind speed, atmospheric pressure, and dust conditions on the Martian surface.
+  
+- **Data Points Provided**:
+  - **Temperature**: Daily maximum, minimum, and average temperatures measured in degrees Celsius.
+  - **Wind Speed**: Maximum and average wind speeds.
+  - **Pressure**: Atmospheric pressure on the surface of Mars.
+  - **Humidity**: Relative humidity levels on Mars, although it is typically very low compared to Earth.
+  - **Dust**: Information on dust storms or dust-related events that can affect rover operations.
+  
+- **API Endpoints**:
+  - **/weather**: Returns the daily weather data from the Curiosity rover, such as temperature, wind, pressure, and more.
+  - **/sol**: Data on Martian days, known as "sols", providing weather conditions on a specific day or period of interest.
+  
+- **Applications**:
+  - **Space Missions**: Supports NASA's rovers and landers, ensuring they operate in optimal conditions based on Martian weather data.
+  - **Rover Operations**: Helps engineers plan rover movements and activities by predicting dust storms and extreme temperature conditions.
+  - **Human Exploration**: Essential data for planning future human missions to Mars, including habitat construction, astronaut health, and life support systems.
+  
+- **Key Takeaway**: The Mars Weather API provides real-time and historical atmospheric data, which is crucial for mission planning, rover performance, and future Mars colonization efforts.
+
+#### 2. NeoWs (Near-Earth Object Web Service) API Integration
+
+The **NeoWs (Near-Earth Object Web Service)** provides data on Near-Earth Objects (NEOs), such as asteroids and comets, that pass near Earth. These objects are a potential hazard to Earth, so monitoring their size, trajectory, and proximity is vital for planetary defense. The API offers access to up-to-date information on NEOs that could potentially collide with Earth, as well as tracking known objects over time.
+
+##### Key Features:
+- **Source**: The data is collected from NASA’s NEO Observations Program, which monitors and catalogs objects that are within 1.3 astronomical units (AU) of Earth. This includes real-time observation data, as well as historical data on past NEO encounters.
+  
+- **Data Points Provided**:
+  - **NEO Name**: The name or identifier of the object.
+  - **Estimated Size**: Diameter of the NEO, in meters, along with its uncertainty.
+  - **Orbit Data**: Includes the object's orbit, velocity, and its potential risk level (e.g., the likelihood of collision with Earth).
+  - **Close Approach Data**: The closest approach date, distance from Earth, and speed at which the object is traveling.
+  - **Impact Risk**: A "hazard" rating based on the likelihood of an Earth impact.
+  
+- **API Endpoints**:
+  - **/neo/rest/v1/feed**: Returns a feed of NEOs that are approaching Earth within a given timeframe (e.g., daily, weekly).
+  - **/neo/rest/v1/neo/{id}**: Returns detailed information on a specific NEO using its unique ID.
+  - **/neo/rest/v1/neo/{id}/close_approach_data**: Returns data about the object's close approach to Earth.
+  - **/neo/rest/v1/neo/{id}/hazardous**: Indicates if the NEO is considered hazardous.
+  
+- **Applications**:
+  - **Planetary Defense**: The data is crucial for planetary defense efforts by identifying and tracking potentially hazardous NEOs to assess the risk of Earth impact.
+  - **Space Research**: Researchers can study NEOs' characteristics, composition, and trajectories to understand their formation and behavior.
+  - **Public Awareness**: Provides transparency in tracking near-Earth objects and their potential threat to Earth, helping to inform decision-making and policy.
+  
+- **Key Takeaway**: NeoWs provides detailed tracking and analysis of Near-Earth Objects, offering critical data for planetary defense and scientific research on the nature of asteroids and comets.
+
+--- 
+
 I followed similar steps as in **Task 2** to integrate these APIs, including:
 - Creating schema in Cassandra,
 - Setting up Kafka producers and consumers,
@@ -292,6 +352,29 @@ Both APIs were successfully integrated and are showcased in the video documentat
 ### Task 4: Visualization and Analysis
 
 For **Task 4**, I provided at least two meaningful visualizations and analyses based on the data from the integrated APIs. These are stored in the Jupyter notebook located in `data-vis/python/`, where I presented insights from the weather data, financial portfolio analysis, and asteroid tracking data.
+
+In this task, due to time limit, I can only conduct some brief analysis instead of only visualization for other APIs, here are some interesting findings when analyse the weather data on Mars using the Mars Weather API:
+
+#### Summary of Mars Weather Data Analysis
+
+In this analysis, we examined the weather data from Mars, focusing on key atmospheric variables such as temperature, wind speed, and atmospheric pressure over the latest 6 sols. Below is a brief summary of the findings:
+
+1. **Average Atmospheric Temperature**:
+   - The Martian temperature (`at_avg`) consistently remained low, averaging around **-62.5°C**, with a slight fluctuation between **-63°C** and **-61°C**. This reflects Mars' cold environment and seasonal changes.
+   - The **maximum temperature** reached around **-13°C**, while the **minimum temperature** plummeted to approximately **-97°C**, highlighting the extreme temperature variations between day and night.
+
+2. **Wind Speed**:
+   - The average **horizontal wind speed** (`hws_avg`) ranged between **5.25 m/s** and **8.5 m/s**, with **max wind speeds** reaching up to **26.9 m/s**. These wind patterns show moderate to strong winds that could be associated with dust storms or other atmospheric phenomena.
+   - **Minimum wind speeds** were as low as **0.23 m/s**, indicating calm periods in the Martian atmosphere.
+
+3. **Atmospheric Pressure**:
+   - The **average atmospheric pressure** (`pre_avg`) fluctuated between **746 Pa** and **750 Pa**, with the **maximum** pressure reaching up to **768 Pa** and the **minimum** pressure around **717 Pa**.
+   - These fluctuations in pressure suggest that Mars experiences dynamic atmospheric conditions, which may be tied to Martian weather systems or seasonal variations.
+
+4. **General Trends**:
+   - Over the 6 sols, there was a slight **increase in pressure** and **moderate wind speeds**. The data shows typical Martian weather characteristics, with cold temperatures, significant day-night temperature variation, and variable wind conditions.
+
+In conclusion, the Martian atmosphere shows a dynamic yet predictable pattern, with fluctuations in temperature, wind speed, and pressure reflecting seasonal shifts and possible weather phenomena.
 
 ---
 
