@@ -1,0 +1,1 @@
+docker-compose -f data-vis/docker-compose.yml up -d

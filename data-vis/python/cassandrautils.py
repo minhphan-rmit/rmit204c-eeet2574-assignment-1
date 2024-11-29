@@ -63,13 +63,13 @@ def loadDF(targetfile, target):
         colsnames = ['sol', 'season', 'first_utc', 'last_utc', 'at_avg', 'at_min', 'at_max',
                      'hws_avg', 'hws_min', 'hws_max', 'pre_avg', 'pre_min', 'pre_max', 'most_common_wind']
         cqlsentence = f"INSERT INTO {MARSWEATHER_TABLE} (sol, season, first_utc, last_utc, at_avg, at_min, at_max, hws_avg, hws_min, hws_max, pre_avg, pre_min, pre_max, most_common_wind) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-    elif target == 'neo':
-        colsnames = ['id', 'name', 'nasa_jpl_url', 'absolute_magnitude_h', 'estimated_diameter_min_km',
-                     'estimated_diameter_max_km', 'is_potentially_hazardous', 'is_sentry_object',
-                     'sentry_data_url', 'close_approach_date', 'close_approach_date_full', 'epoch_date_close_approach',
-                     'relative_velocity_kps', 'relative_velocity_kph', 'relative_velocity_mph',
-                     'miss_distance_au', 'miss_distance_lunar', 'miss_distance_km', 'miss_distance_miles', 'orbiting_body']
-        cqlsentence = f"INSERT INTO {NEO_TABLE} (id, name, nasa_jpl_url, absolute_magnitude_h, estimated_diameter_min_km, estimated_diameter_max_km, is_potentially_hazardous, is_sentry_object, sentry_data_url, close_approach_date, close_approach_date_full, epoch_date_close_approach, relative_velocity_kps, relative_velocity_kph, relative_velocity_mph, miss_distance_au, miss_distance_lunar, miss_distance_km, miss_distance_miles, orbiting_body) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    elif target == 'near_earth_objects':
+        # Updated column names for simplified neodata table
+        colsnames = ['id', 'name', 'close_approach_date', 'relative_velocity_kph', 'miss_distance_km',
+                     'estimated_diameter_min_km', 'estimated_diameter_max_km', 'is_potentially_hazardous', 'orbiting_body']
+        
+        # Updated CQL for the neodata table
+        cqlsentence = f"INSERT INTO {NEO_TABLE} (id, name, close_approach_date, relative_velocity_kph, miss_distance_km, estimated_diameter_min_km, estimated_diameter_max_km, is_potentially_hazardous, orbiting_body) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
     else:
         print(f"Unsupported target: {target}")
         return
