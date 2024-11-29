@@ -7,6 +7,7 @@ echo "Stopping all services and cleaning Docker resources..."
 # Function to stop all running Docker Compose services
 stop_services() {
     echo "Stopping all Docker Compose services..."
+    docker-compose -f data-vis/docker-compose.yml down
     docker-compose -f cassandra/docker-compose.yml down
     docker-compose -f kafka/docker-compose.yml down
     docker-compose -f owm-producer/docker-compose.yml down
