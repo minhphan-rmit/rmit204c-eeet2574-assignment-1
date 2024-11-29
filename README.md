@@ -4,7 +4,7 @@
 **Student:** Phan Nhat Minh  
 **Student ID:** s3978598  
 
-This document serves as the official documentation for **Assignment 1: Data Pipeline with Docker**. The video documentation for this assignment is available on [Youtube](https://youtu.be/kHNVprOkJnI).
+This document serves as the official documentation for **Assignment 1: Data Pipeline with Docker**. The video documentation for this assignment is available on [Youtube](https://youtu.be/E3Jw6F63wtQ).
 
 ### Acknowledgement
 This project is built using resources provided by the lecturer, specifically from [this GitHub repository](https://github.com/vnyennhi/docker-kafka-cassandra). Modifications and adjustments have been made to meet the specific requirements of the assignment.
