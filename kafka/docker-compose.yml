@@ -1,5 +1,3 @@
-version: "3"
-
 services:
 
   zookeeper:
@@ -10,7 +8,7 @@ services:
     ports:
       - 2181:2181
     networks:
-      - default
+      - kafka-network
     environment:
       ZOO_MY_ID: 1
 
@@ -20,13 +18,13 @@ services:
     ports:
       - 9092:9092
     networks:
-      - default
+      - kafka-network
     environment:
       KAFKA_ADVERTISED_HOST_NAME: broker
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_MESSAGE_MAX_BYTES: 2000000
       # Create topic, with 1 partition, 1 replica
-      KAFKA_CREATE_TOPICS: "weather:1:1, faker:1:1, tmdb:1:1"
+      KAFKA_CREATE_TOPICS: "weather:1:1, faker:1:1, marsweather:1:1, near_earth_objects:1:1"
 
   kafka_manager:
     image: hlebalbau/kafka-manager:stable
@@ -35,7 +33,7 @@ services:
     ports:
       - 9000:9000
     networks:
-      - default
+      - kafka-network
     environment:
       ZK_HOSTS: "zookeeper:2181"
       APPLICATION_SECRET: "random-secret"
@@ -43,6 +41,7 @@ services:
       KAFKA_MANAGER_USERNAME: admin
       KAFKA_MANAGER_PASSWORD: bigbang
     command: -Dpidfile.path=/dev/null
+
   connect:
     build:
       context: .
@@ -55,8 +54,8 @@ services:
     ports:
       - "8083:8083"
     networks:
-      - default
-      - secondary
+      - kafka-network
+      - cassandra-network
     environment:
       CONNECT_BOOTSTRAP_SERVERS: 'broker:9092'
       CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
@@ -77,9 +76,7 @@ services:
       CONNECT_ZOOKEEPER_CONNECT: 'zookeeper:2181'
 
 networks:
-  default:
-    external:
-      name: kafka-network
-  secondary:
-    external:
-      name: cassandra-network
+  kafka-network:
+    external: true
+  cassandra-network:
+    external: true

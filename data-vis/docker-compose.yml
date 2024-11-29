@@ -11,7 +11,8 @@ services:
       CASSANDRA_KEYSPACE: kafkapipeline
       WEATHER_TABLE: weatherreport
       FAKER_TABLE: fakerdata
-      TMDB_TABLE: movies
+      MARSWEATHER_TABLE: marsweather
+      NEO_TABLE: neodata
     ports:
         - 8888:8888
     volumes:

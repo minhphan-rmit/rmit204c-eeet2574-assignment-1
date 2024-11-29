@@ -6,4 +6,4 @@ ADD ./requirements.txt ./
 RUN pip install -r requirements.txt
 ADD ./ ./
 
-CMD ["python3", "-u", "tmdb_producer.py"]
+CMD ["python3", "-u", "neo_producer.py"]

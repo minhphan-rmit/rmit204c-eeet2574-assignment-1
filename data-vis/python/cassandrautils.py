@@ -1,178 +1,96 @@
 import os
 import sys
-
 import pandas as pd
 from cassandra.cluster import BatchStatement, Cluster, ConsistencyLevel
 from cassandra.query import dict_factory
 
-tablename = os.getenv("weather.table", "weatherreport")
-fakertable = os.getenv("faker.table", "fakerdata")
-tmdbtable = os.getenv("tmdb.table", "movies")
+# Cassandra configuration
+CASSANDRA_HOST = os.environ.get("CASSANDRA_HOST", "localhost")
+CASSANDRA_KEYSPACE = os.environ.get("CASSANDRA_KEYSPACE", "kafkapipeline")
 
-CASSANDRA_HOST = os.environ.get("CASSANDRA_HOST") if os.environ.get("CASSANDRA_HOST") else 'localhost'
-CASSANDRA_KEYSPACE = os.environ.get("CASSANDRA_KEYSPACE") if os.environ.get("CASSANDRA_KEYSPACE") else 'kafkapipeline'
+# Table names
+WEATHER_TABLE = os.environ.get("WEATHER_TABLE", "weatherreport")
+FAKER_TABLE = os.environ.get("FAKER_TABLE", "fakerdata")
+MARSWEATHER_TABLE = os.environ.get("MARSWEATHER_TABLE", "marsweather")
+NEO_TABLE = os.environ.get("NEO_TABLE", "neodata")
 
-WEATHER_TABLE = os.environ.get("WEATHER_TABLE") if os.environ.get("WEATHER_TABLE") else 'weather'
-FAKER_TABLE = os.environ.get("FAKER_TABLE") if os.environ.get("FAKER_TABLE") else 'faker'
-TMDB_TABLE = os.environ.get("TMDB_TABLE") if os.environ.get("TMDB_TABLE") else 'tmdb'
-
-
-def saveWeatherreport(dfrecords):
-    if isinstance(CASSANDRA_HOST, list):
-        cluster = Cluster(CASSANDRA_HOST)
-    else:
-        cluster = Cluster([CASSANDRA_HOST])
-
+def saveData(dfrecords, tablename, cqlsentence):
+    """
+    Generic function to save a DataFrame to Cassandra.
+    """
+    cluster = Cluster([CASSANDRA_HOST])
     session = cluster.connect(CASSANDRA_KEYSPACE)
+    session.set_keyspace(CASSANDRA_KEYSPACE)
 
     counter = 0
     totalcount = 0
-
-    cqlsentence = "INSERT INTO " + tablename + " (forecastdate, location, description, temp, feels_like, temp_min, temp_max, pressure, humidity, wind, sunrise, sunset) \
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM)
     insert = session.prepare(cqlsentence)
     batches = []
+
     for idx, val in dfrecords.iterrows():
-        batch.add(insert, (val['report_time'], val['location'], val['description'],
-                           val['temp'], val['feels_like'], val['temp_min'], val['temp_max'],
-                           val['pressure'], val['humidity'], val['wind'], val['sunrise'], val['sunset']))
+        batch.add(insert, tuple(val))
         counter += 1
         if counter >= 100:
-            print('inserting ' + str(counter) + ' records')
+            print(f"Inserting {counter} records into {tablename}")
             totalcount += counter
             counter = 0
             batches.append(batch)
             batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM)
+
     if counter != 0:
         batches.append(batch)
         totalcount += counter
-    rs = [session.execute(b, trace=True) for b in batches]
 
-    print('Inserted ' + str(totalcount) + ' rows in total')
-
-
-def saveFakerDf(dfrecords):
-    if isinstance(CASSANDRA_HOST, list):
-        cluster = Cluster(CASSANDRA_HOST)
-    else:
-        cluster = Cluster([CASSANDRA_HOST])
-
-    session = cluster.connect(CASSANDRA_KEYSPACE)
-
-    counter = 0
-    totalcount = 0
-
-    cqlsentence = "INSERT INTO " + fakertable + " (name, ssn, job, year, company, company_email, building_number, street_name, city, country, postcode, passport_number, credit_card_provider, credit_card_number, credit_card_expire, credit_card_security_code) \
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-    batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM)
-    insert = session.prepare(cqlsentence)
-    batches = []
-    for idx, val in dfrecords.iterrows():
-        batch.add(insert, (
-            val['name'], val['ssn'], val['job'], val['year'],
-            val['company'], val['company_email'], val['building_number'],
-            val['street_name'], val['city'], val['country'], val['postcode'],
-            val['passport_number'], val['credit_card_provider'],
-            val['credit_card_number'], val['credit_card_expire'],
-            val['credit_card_security_code']
-        ))
-        counter += 1
-        if counter >= 100:
-            print('inserting ' + str(counter) + ' records')
-            totalcount += counter
-            counter = 0
-            batches.append(batch)
-            batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM)
-    if counter != 0:
-        batches.append(batch)
-        totalcount += counter
-    rs = [session.execute(b, trace=True) for b in batches]
-
-    print('Inserted ' + str(totalcount) + ' rows in total')
-
-
-def saveMoviesDf(dfrecords):
-    if isinstance(CASSANDRA_HOST, list):
-        cluster = Cluster(CASSANDRA_HOST)
-    else:
-        cluster = Cluster([CASSANDRA_HOST])
-
-    session = cluster.connect(CASSANDRA_KEYSPACE)
-
-    counter = 0
-    totalcount = 0
-
-    cqlsentence = "INSERT INTO " + tmdbtable + " (id, title, original_title, overview, original_language, adult, popularity, vote_average, vote_count, release_date) \
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-    batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM)
-    insert = session.prepare(cqlsentence)
-    batches = []
-    for idx, val in dfrecords.iterrows():
-        batch.add(insert, (
-            val['id'], val['title'], val['original_title'], val['overview'],
-            val['original_language'], val['adult'], val['popularity'],
-            val['vote_average'], val['vote_count'], val['release_date'],
-        ))
-        counter += 1
-        if counter >= 100:
-            print('inserting ' + str(counter) + ' records')
-            totalcount += counter
-            counter = 0
-            batches.append(batch)
-            batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM)
-    if counter != 0:
-        batches.append(batch)
-        totalcount += counter
-    rs = [session.execute(b, trace=True) for b in batches]
-
-    print('Inserted ' + str(totalcount) + ' rows in total')
+    [session.execute(b, trace=True) for b in batches]
+    print(f"Inserted {totalcount} rows into {tablename}")
 
 
 def loadDF(targetfile, target):
+    """
+    Load a CSV file and save it to the appropriate Cassandra table.
+    """
     if target == 'weather':
-        colsnames = ['description', 'temp', 'feels_like', 'temp_min', 'temp_max',
-                     'pressure', 'humidity', 'wind', 'sunrise', 'sunset', 'location', 'report_time']
-        dfData = pd.read_csv(targetfile, header=None, parse_dates=True, names=colsnames)
-        dfData['report_time'] = pd.to_datetime(dfData['report_time'])
-        saveWeatherreport(dfData)
+        colsnames = ['forecastdate', 'location', 'description', 'temp', 'feels_like', 'temp_min',
+                     'temp_max', 'pressure', 'humidity', 'wind', 'sunrise', 'sunset']
+        cqlsentence = f"INSERT INTO {WEATHER_TABLE} (forecastdate, location, description, temp, feels_like, temp_min, temp_max, pressure, humidity, wind, sunrise, sunset) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     elif target == 'faker':
-        colsnames = ['name', 'ssn', 'job', 'year', 'company', 'company_email', 'building_number',
-                     'street_name', 'city', 'country', 'postcode', 'passport_number',
-                     'credit_card_provider', 'credit_card_number', 'credit_card_expire',
-                     'credit_card_security_code']
-        dfData = pd.read_csv(targetfile, header=None, names=colsnames)
-        saveFakerDf(dfData)
-    elif target == 'tmdb':
-        colsnames = ['id', 'title', 'original_title', 'overview', 'original_language',
-                     'adult', 'popularity', 'vote_average', 'vote_count', 'release_date']
-        dfData = pd.read_csv(targetfile, header=None, names=colsnames)
-        saveMoviesDf(dfData)
+        colsnames = ['name', 'ssn', 'job', 'age', 'gender', 'income', 'credit_card_provider',
+                     'credit_card_number', 'credit_card_expire', 'credit_card_security_code',
+                     'city', 'country', 'postcode', 'street_name', 'monthly_purchases', 'avg_purchase_amount']
+        cqlsentence = f"INSERT INTO {FAKER_TABLE} (name, ssn, job, age, gender, income, credit_card_provider, credit_card_number, credit_card_expire, credit_card_security_code, city, country, postcode, street_name, monthly_purchases, avg_purchase_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    elif target == 'marsweather':
+        colsnames = ['sol', 'season', 'first_utc', 'last_utc', 'at_avg', 'at_min', 'at_max',
+                     'hws_avg', 'hws_min', 'hws_max', 'pre_avg', 'pre_min', 'pre_max', 'most_common_wind']
+        cqlsentence = f"INSERT INTO {MARSWEATHER_TABLE} (sol, season, first_utc, last_utc, at_avg, at_min, at_max, hws_avg, hws_min, hws_max, pre_avg, pre_min, pre_max, most_common_wind) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    elif target == 'neo':
+        colsnames = ['id', 'name', 'nasa_jpl_url', 'absolute_magnitude_h', 'estimated_diameter_min_km',
+                     'estimated_diameter_max_km', 'is_potentially_hazardous', 'is_sentry_object',
+                     'sentry_data_url', 'close_approach_date', 'close_approach_date_full', 'epoch_date_close_approach',
+                     'relative_velocity_kps', 'relative_velocity_kph', 'relative_velocity_mph',
+                     'miss_distance_au', 'miss_distance_lunar', 'miss_distance_km', 'miss_distance_miles', 'orbiting_body']
+        cqlsentence = f"INSERT INTO {NEO_TABLE} (id, name, nasa_jpl_url, absolute_magnitude_h, estimated_diameter_min_km, estimated_diameter_max_km, is_potentially_hazardous, is_sentry_object, sentry_data_url, close_approach_date, close_approach_date_full, epoch_date_close_approach, relative_velocity_kps, relative_velocity_kph, relative_velocity_mph, miss_distance_au, miss_distance_lunar, miss_distance_km, miss_distance_miles, orbiting_body) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     else:
         print(f"Unsupported target: {target}")
+        return
 
+    dfData = pd.read_csv(targetfile, header=None, names=colsnames)
+    saveData(dfData, target, cqlsentence)
 
-def getWeatherDF():
-    return getDF(WEATHER_TABLE)
-def getFakerDF():
-    print(FAKER_TABLE)
-    return getDF(FAKER_TABLE)
-def getMoviesDF():
-    print(TMDB_TABLE)
-    return getDF(TMDB_TABLE)
 
 def getDF(source_table):
-    if isinstance(CASSANDRA_HOST, list):
-        cluster = Cluster(CASSANDRA_HOST)
-    else:
-        cluster = Cluster([CASSANDRA_HOST])
-
-    if source_table not in (WEATHER_TABLE, FAKER_TABLE, TMDB_TABLE):
-        return None
-
+    """
+    Retrieve data from a Cassandra table and return it as a Pandas DataFrame.
+    """
+    cluster = Cluster([CASSANDRA_HOST])
     session = cluster.connect(CASSANDRA_KEYSPACE)
     session.row_factory = dict_factory
-    cqlquery = "SELECT * FROM " + source_table + ";"
+
+    if source_table not in (WEATHER_TABLE, FAKER_TABLE, MARSWEATHER_TABLE, NEO_TABLE):
+        print(f"Unsupported table: {source_table}")
+        return None
+
+    cqlquery = f"SELECT * FROM {source_table};"
     rows = session.execute(cqlquery)
     return pd.DataFrame(rows)
 
@@ -180,8 +98,12 @@ def getDF(source_table):
 if __name__ == "__main__":
     action = sys.argv[1]
     target = sys.argv[2]
-    targetfile = sys.argv[3]
-    if action == "save":
+    targetfile = sys.argv[3] if len(sys.argv) > 3 else None
+
+    if action == "save" and targetfile:
         loadDF(targetfile, target)
     elif action == "get":
-        getDF(target)
+        df = getDF(target)
+        print(df.head())
+    else:
+        print("Usage: python cassandrautils.py <save|get> <target> [targetfile]")

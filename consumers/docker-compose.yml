@@ -20,15 +20,24 @@ services:
       CASSANDRA_HOST: cassandradb
       CASSANDRA_KEYSPACE: kafkapipeline
     command: ["python", "-u","python/faker_consumer.py"]
-  tmdbconsumer:
-    container_name: tmdbconsumer
+  marsweatherconsumer:
+    container_name: marsweatherconsumer
     image: consumer
     environment:
       KAFKA_BROKER_URL: broker:9092
-      TOPIC_NAME: tmdb
+      TOPIC_NAME: marsweather
       CASSANDRA_HOST: cassandradb
       CASSANDRA_KEYSPACE: kafkapipeline
-    command: ["python", "-u","python/tmdb_consumer.py"]
+    command: ["python", "-u","python/marsweather_consumer.py"]
+  neoconsumer:
+    container_name: neoconsumer
+    image: consumer
+    environment:
+      KAFKA_BROKER_URL: broker:9092
+      TOPIC_NAME: near_earth_objects
+      CASSANDRA_HOST: cassandradb
+      CASSANDRA_KEYSPACE: kafkapipeline
+    command: ["python", "-u","python/neo_consumer.py"]
 
 networks:
   default:

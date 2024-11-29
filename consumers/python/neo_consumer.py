@@ -3,7 +3,7 @@ import os, json
 
 
 if __name__ == "__main__":
-    print("Starting TMDB Consumer")
+    print("Starting NeoData Consumer")
     TOPIC_NAME = os.environ.get("TOPIC_NAME")
     KAFKA_BROKER_URL = os.environ.get("KAFKA_BROKER_URL", "localhost:9092")
     CASSANDRA_HOST = os.environ.get("CASSANDRA_HOST", "localhost")
@@ -14,7 +14,6 @@ if __name__ == "__main__":
     
     print('Waiting for msg...')
     for msg in consumer:
-        # print('got one!')
         msg = msg.value.decode('ascii')
         jsonData=json.loads(msg)
         print(jsonData)

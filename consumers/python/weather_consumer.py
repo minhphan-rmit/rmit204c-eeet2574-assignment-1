@@ -18,7 +18,6 @@ if __name__ == "__main__":
     
     print('Waiting for msg....')
     for msg in consumer:
-        # print('got one!')
         msg = msg.value.decode('ascii')
         jsonData=json.loads(msg)
         print(jsonData)
